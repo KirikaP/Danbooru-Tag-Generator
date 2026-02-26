@@ -7,7 +7,7 @@
         "max_tags": 100,
         "auto_tag": true,
         "auto_generate_max_chinese_chars": 50,
-        "auto_generate_prompt": "请随机创作一个适合二次元插画的画面场景，内容可以是人物、风景、日常或奇幻场景，要求画面感强、细节丰富。先输出中文描述（不超过{max_chinese_chars}字），再在同一行用 ' / ' 分隔，输出对应的英文描述。只输出这一行内容，不加任何前缀、标签或解释。"
+        "auto_generate_prompt": "请随机创作一个适合二次元插画的画面场景，内容可以是人物、风景、日常或奇幻场景，要求画面感强、细节丰富。只输出中文描述（不超过{max_chinese_chars}字），不加任何前缀、标签或解释。"
     },
     "semantic_search": {
         "enabled": true,
