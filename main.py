@@ -30,13 +30,13 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例用法:
-  python main.py                              # 启动交互模式（默认启用语义搜索 + LLM）
-  python main.py -d "一位可爱女孩"              # 生成标签（默认启用语义搜索 + LLM）
-  python main.py -d "一位可爱女孩" --no-llm    # 只使用语义搜索
+  python main.py                               # 启动交互模式（默认启用语义搜索 + LLM）
+  python main.py -d "一位可爱女孩"               # 生成标签（默认启用语义搜索 + LLM）
+  python main.py -d "一位可爱女孩" --no-llm      # 只使用语义搜索
   python main.py -d "一位可爱女孩" --no-semantic # 只使用LLM
-  python main.py --no-llm --no-semantic      # 纯关键词匹配
+  python main.py --no-llm --no-semantic        # 纯关键词匹配
   python main.py -d "一位可爱女孩" --underscore  # 使用下划线分隔
-  python main.py -f descriptions.txt          # 批量生成
+  python main.py -f descriptions.txt           # 批量生成
         """
     )
     

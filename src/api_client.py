@@ -48,8 +48,6 @@ class APIClient:
         self.api_key = config.get('api_key') or os.environ.get('LLM_API_KEY') or os.environ.get('API_KEY')
         self.base_url = config.get('base_url')
         self.model = config.get('model')
-        self.temperature = config.get('temperature')
-        self.max_tokens = config.get('max_tokens')
         self.enable_thinking = config.get('enable_thinking', False)
         self.timeout = config.get('timeout', 60)
         # 各步骤独立的 thinking 控制（优先级高于全局 enable_thinking）
@@ -165,10 +163,12 @@ class APIClient:
         
         n_candidates = len([t for t in candidate_tags.split(',') if t.strip()])
         
-        # 从配置读取 select_tags 专用参数
+        # 从配置读取 select_tags 专用参数（支持新旧两种格式）
         cfg = get_config('llm') or get_config('api') or {}
-        select_temperature = cfg.get('select_tags_temperature')
-        select_max_tokens = cfg.get('select_tags_max_tokens')
+        select_cfg = cfg.get('select_tags', {})
+        select_temperature = select_cfg.get('temperature', cfg.get('select_tags_temperature'))
+        select_top_p = select_cfg.get('top_p', cfg.get('select_tags_top_p'))
+        select_max_tokens = select_cfg.get('max_tokens', cfg.get('select_tags_max_tokens'))
         select_tags_max = cfg.get('select_tags_max')
         
         # 获取 system prompt 并替换占位符
@@ -197,6 +197,7 @@ class APIClient:
                     {"role": "user", "content": user_msg}
                 ],
                 "temperature": select_temperature,
+                "top_p": select_top_p,
                 "max_tokens": select_max_tokens,
                 "enable_thinking": self.thinking_select_tags
             },
@@ -212,6 +213,13 @@ class APIClient:
 
     def _call_openai(self, prompt: str, user_prompt: Optional[str] = None) -> str:
         """调用OpenAI兼容API"""
+        # 从配置读取 generate 专用参数
+        cfg = get_config('llm') or get_config('api') or {}
+        gen_cfg = cfg.get('generate', {})
+        gen_temperature = gen_cfg.get('temperature', 1.0)
+        gen_top_p = gen_cfg.get('top_p', 0.95)
+        gen_max_tokens = gen_cfg.get('max_tokens', 128000)
+        
         start_time = time.time()
         label = '正在思考并生成内容...' if self.thinking_generate else '正在生成内容...'
         response = self._call_with_spinner(label, self._request_with_retry,
@@ -223,8 +231,9 @@ class APIClient:
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": user_prompt or prompt}
                 ],
-                "temperature": self.temperature,
-                "max_tokens": self.max_tokens,
+                "temperature": gen_temperature,
+                "top_p": gen_top_p,
+                "max_tokens": gen_max_tokens,
                 "enable_thinking": self.thinking_generate
             },
             timeout=self.timeout
@@ -257,6 +266,12 @@ class APIClient:
         from .config import get_config
         cfg = get_config('llm') or get_config('api') or {}
         
+        # 从配置读取 validate 专用参数（支持新旧两种格式）
+        val_cfg = cfg.get('validate', {})
+        val_temperature = val_cfg.get('temperature', 0.3)
+        val_top_p = val_cfg.get('top_p', 0.95)
+        val_max_tokens = val_cfg.get('max_tokens', 64)
+        
         validate_system = cfg.get('validate_prompt', 
             "你是标签质量审核员。你的任务是判断给定的标签列表是否符合用户描述。"
             "判断标准：标签是否描述了用户描述中提到的内容。"
@@ -272,8 +287,9 @@ class APIClient:
                     {"role": "system", "content": validate_system},
                     {"role": "user", "content": f"用户描述：{description}\n\n生成的标签列表：{', '.join(tags)}\n\n请判断这些标签是否符合用户描述。只输出 '符合' 或 '不符合'。"}
                 ],
-                "temperature": 0.3,
-                "max_tokens": 64
+                "temperature": val_temperature,
+                "top_p": val_top_p,
+                "max_tokens": val_max_tokens
             },
             timeout=self.timeout
         )
@@ -298,6 +314,12 @@ class APIClient:
             "输出所有需要保留的标签，用逗号分隔。只输出标签，不要其他文字。"
         )
         
+        # 从配置读取 validate 专用参数（与validate_tags使用相同配置）
+        val_cfg = cfg.get('validate', {})
+        val_temperature = val_cfg.get('temperature', 0.3)
+        val_top_p = val_cfg.get('top_p', 0.95)
+        val_remove_max_tokens = val_cfg.get('max_tokens', 512)
+        
         try:
             response = self._request_with_retry(
                 f"{self.base_url}/chat/completions",
@@ -308,8 +330,9 @@ class APIClient:
                         {"role": "system", "content": remove_system},
                         {"role": "user", "content": f"用户描述：{description}\n\n标签列表：{', '.join(tags)}\n\n请找出与上述描述无关的标签，只输出需要保留的相关标签（用逗号分隔）。如果所有标签都无关，则输出 '无'。"}
                     ],
-                    "temperature": 0.3,
-                    "max_tokens": 512
+                    "temperature": val_temperature,
+                    "top_p": val_top_p,
+                    "max_tokens": val_remove_max_tokens
                 },
                 timeout=self.timeout
             )

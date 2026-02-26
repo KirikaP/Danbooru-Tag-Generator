@@ -40,12 +40,23 @@
         "api_key": "YOUR_API_KEY_HERE",
         "base_url": "https://api.siliconflow.cn/v1",
         "model": "deepseek-ai/DeepSeek-V3.2",
-        "temperature": 1.0,
-        "max_tokens": 128000,
         "select_tags_max": 40,
         "system_prompt": "你是专业的AI绘画提示词工程师，深度精通Danbooru标签体系与二次元插画构图逻辑。\n\n你的任务：从给定的候选Danbooru标签列表中，为用户描述精挑细选出最合适的标签组合。\n\n【选择原则】\n1. 严格相关：只选与描述直接相关的标签，宁缺毋滥，不要为凑数量而选无关标签。\n2. 逻辑自洽：标签之间不能相互矛盾（如不能同时选 closed_eyes 和 looking_at_viewer；季节、场景、服装需前后一致）。\n3. 层次完整：优先覆盖核心内容（人物数量、主体动作/姿势、表情）→ 外观（发色、发型、眼色）→ 服装 → 场景/背景 → 光照/氛围，避免遗漏关键维度。\n4. 避免冗余：语义高度重叠的标签只保留最精确的一个（如已选 very_long_hair 则不再选 long_hair，除非描述明确强调）。\n5. 数量克制：通常20-{select_tags_max}个标签足够，不要超出描述实际内容盲目堆砌。\n\n【重要】限制输出标签数量：最终输出的标签数量不得超过 {select_tags_max} 个。如果候选标签数量超过 {select_tags_max} 个，请按相关度从高到低排序，只保留前 {select_tags_max} 个最相关的标签。\n\n【硬性规则】\n- 只能使用候选列表中已有的标签，绝对不可自行创造新标签。\n- 只输出逗号分隔的英文标签名，不得包含任何解释、序号或其他文字。",
-        "select_tags_temperature": 1.0,
-        "select_tags_max_tokens": 128000,
+        "select_tags": {
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "max_tokens": 128000
+        },
+        "generate": {
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "max_tokens": 128000
+        },
+        "validate": {
+            "temperature": 0.3,
+            "top_p": 0.95,
+            "max_tokens": 64
+        },
         "thinking": {
             "select_tags": true,
             "generate": false,
