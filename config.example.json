@@ -45,17 +45,17 @@
         "select_tags": {
             "temperature": 1.0,
             "top_p": 0.95,
-            "max_tokens": 128000
+            "max_tokens": 64000
         },
         "generate": {
             "temperature": 1.0,
             "top_p": 0.95,
-            "max_tokens": 128000
+            "max_tokens": 64000
         },
         "validate": {
             "temperature": 0.3,
             "top_p": 0.95,
-            "max_tokens": 64
+            "max_tokens": 64000
         },
         "thinking": {
             "select_tags": true,
