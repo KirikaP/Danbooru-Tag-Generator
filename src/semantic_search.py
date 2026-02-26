@@ -491,8 +491,12 @@ class SemanticTagger:
         2. 编码所有有效标签
         3. 直接计算相似度取Top结果
         """
+        # 懒加载CSV数据
         if self.df is None:
-            return "Error: No tags loaded.", []
+            if self.csv_path:
+                self._load_csv()
+            if self.df is None:
+                return "Error: No tags loaded.", []
         
         print(f"[SemanticTagger] 语义搜索阶段...")
         
