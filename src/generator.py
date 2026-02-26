@@ -4,6 +4,7 @@
 只使用大模型API和语义嵌入搜索
 """
 
+import re
 from typing import List, Dict, Optional, Any
 from .api_client import APIClient, create_api_client
 
@@ -54,6 +55,51 @@ class PromptGenerator:
         if self.use_space_separator:
             return tag.replace('_', ' ')
         return tag
+
+    @staticmethod
+    def _contains_chinese(text: str) -> bool:
+        return re.search(r'[\u4e00-\u9fff]', text) is not None
+
+    @staticmethod
+    def _contains_english(text: str) -> bool:
+        return re.search(r'[A-Za-z]', text) is not None
+
+    def _translate_to_other_language(self, description: str) -> Optional[str]:
+        if not self.is_api_enabled():
+            return None
+
+        has_zh = self._contains_chinese(description)
+        has_en = self._contains_english(description)
+
+        if has_zh and has_en:
+            return None
+        if not has_zh and not has_en:
+            return None
+
+        target_lang = '英文' if has_zh else '中文'
+        prompt = (
+            f"请将下面这段内容准确翻译为{target_lang}。"
+            f"只输出翻译结果，不要添加解释、前缀或引号。\n\n"
+            f"原文：{description}"
+        )
+
+        try:
+            translated = self.api_client.generate('', prompt).strip()  # type: ignore[union-attr]
+            if not translated:
+                return None
+            if translated == description:
+                return None
+            return translated
+        except Exception:
+            return None
+
+    def _prepare_bilingual_description(self, description: str) -> str:
+        translated = self._translate_to_other_language(description)
+        if not translated:
+            return description
+        print(f"[Generator] 单语输入检测到，已补全双语描述")
+        print(f"[Generator] 双语描述: {description} / {translated}")
+        return f"{description} / {translated}"
     
     def generate(self, description: Optional[str] = None, use_semantic: bool = True) -> str:
         """
@@ -76,6 +122,9 @@ class PromptGenerator:
                 return self._generate_with_api_auto()
             return self._generate_default_prompt()
         
+        description = description.strip()
+        description = self._prepare_bilingual_description(description)
+
         # ── 两阶段主流程 ──────────────────────────────────────────────
         if use_semantic and self.semantic_tagger:
             return self._generate_semantic_then_select(description)
@@ -188,9 +237,7 @@ class PromptGenerator:
             
             # 替换占位符
             max_chinese = gen_cfg.get('auto_generate_max_chinese_chars', 40)
-            max_english = gen_cfg.get('auto_generate_max_english_words', 20)
             user_prompt = user_prompt.replace('{max_chinese_chars}', str(max_chinese))
-            user_prompt = user_prompt.replace('{max_english_words}', str(max_english))
             description = self.api_client.generate("", user_prompt).strip()
             print(f"[Generator]   LLM生成的场景: {description}")
             
