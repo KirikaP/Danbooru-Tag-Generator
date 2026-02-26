@@ -7,6 +7,7 @@
 - **语义搜索**：基于 BGE-M3 向量嵌入 + BGE-Reranker 重排序，从 47,000+ 标签中召回最相关的候选
 - **LLM 筛选**：大模型智能挑选最符合描述的标签
 - **标签验证**：可选的验证阶段，自动剔除无关标签
+- **图形界面**：基于 Flet 的现代化 GUI 应用
 
 ## 安装
 
@@ -16,16 +17,20 @@ pip install -r requirements.txt
 
 ## 配置
 
-```bash
-# 复制配置模板
-copy config.example.json config.json
-```
-
 编辑 `config.json`，填写你的 API 密钥。支持 SiliconFlow、DeepSeek 等 OpenAI 兼容接口。
 
 > 密钥也可通过环境变量 `LLM_API_KEY` 设置，避免明文配置。
 
 ## 使用
+
+### 图形界面
+
+```bash
+# 启动 GUI 应用
+python gui.py
+```
+
+### 命令行
 
 ```bash
 # 基本用法
@@ -56,8 +61,6 @@ python main.py -f descriptions.txt -o output.txt
 | `llm.select_tags.max_tokens` | 标签筛选最大 token 数 |
 | `semantic_search.embedding.model` | 嵌入模型 |
 | `semantic_search.reranker.model` | 重排序模型 |
-
-具体参数分组参考 `config.example.json`。
 
 ## 许可证
 
