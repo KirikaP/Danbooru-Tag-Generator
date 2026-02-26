@@ -403,9 +403,7 @@ def _generate_natural_language_description() -> str:
     gen_cfg = get_config("generator") or {}
     user_prompt = gen_cfg.get("auto_generate_prompt", "")
     max_chinese = gen_cfg.get("auto_generate_max_chinese_chars", 40)
-    max_english = gen_cfg.get("auto_generate_max_english_words", 20)
     user_prompt = user_prompt.replace("{max_chinese_chars}", str(max_chinese))
-    user_prompt = user_prompt.replace("{max_english_words}", str(max_english))
 
     llm_cfg = get_config("llm") or {}
     client = APIClient(
@@ -456,7 +454,6 @@ def build_generator_page(page: ft.Page, state: AppState):
     use_semantic = ft.Switch(label="使用语义搜索", value=True)
     use_llm = ft.Switch(label="使用大语言模型", value=True)
     use_space = ft.Switch(label="使用空格分隔", value=True)
-    auto_generate = ft.Switch(label="自动生成描述", value=False)
     thinking_select_tags = ft.Switch(label="大语言模型思考：筛选标签", value=bool(state.config.get_value("llm.thinking.select_tags", True)))
     thinking_generate = ft.Switch(label="大语言模型思考：生成描述", value=bool(state.config.get_value("llm.thinking.generate", False)))
     thinking_validate = ft.Switch(label="大语言模型思考：验证标签", value=bool(state.config.get_value("llm.thinking.validate", False)))
@@ -477,6 +474,7 @@ def build_generator_page(page: ft.Page, state: AppState):
     state.progress = ft.ProgressBar(visible=False, width=780)
 
     state.generate_desc_btn = None
+    state.generate_desc_and_tags_btn = None
 
     def run_with_live_logs(task_func, on_success, success_text):
         if state.generating:
@@ -486,6 +484,8 @@ def build_generator_page(page: ft.Page, state: AppState):
         state.generate_btn.disabled = True
         if state.generate_desc_btn is not None:
             state.generate_desc_btn.disabled = True
+        if state.generate_desc_and_tags_btn is not None:
+            state.generate_desc_and_tags_btn.disabled = True
         state.progress.visible = True
         state.log_text = ""
         if state.log_text_control is not None:
@@ -572,6 +572,8 @@ def build_generator_page(page: ft.Page, state: AppState):
                 state.generate_btn.disabled = False
                 if state.generate_desc_btn is not None:
                     state.generate_desc_btn.disabled = False
+                if state.generate_desc_and_tags_btn is not None:
+                    state.generate_desc_and_tags_btn.disabled = False
                 state.progress.visible = False
                 page.update()
 
@@ -579,11 +581,8 @@ def build_generator_page(page: ft.Page, state: AppState):
 
     def run_generate(_):
         description = (desc_input.value or "").strip()
-        if auto_generate.value and not description:
-            description = None
-
-        if not description and not auto_generate.value:
-            state.set_status(page, "请输入描述或启用自动生成", C.ORANGE)
+        if not description:
+            state.set_status(page, "请输入描述", C.ORANGE)
             return
 
         def task_func():
@@ -609,6 +608,26 @@ def build_generator_page(page: ft.Page, state: AppState):
 
         run_with_live_logs(task_func, on_success, "自然语言描述生成完成")
 
+    def run_generate_description_and_tags(_):
+        def task_func():
+            generated_text = _generate_natural_language_description()
+            print("[Generator] 使用生成的自然语言描述继续生成标签...")
+            result = _generate_impl(generated_text, use_semantic.value, use_llm.value, use_space.value)
+            print("=" * 50)
+            print("最终标签:")
+            print(result)
+            print("=" * 50)
+            return generated_text
+
+        def on_success(generated_text):
+            desc_input.value = generated_text
+            try:
+                desc_input.update()
+            except Exception:
+                pass
+
+        run_with_live_logs(task_func, on_success, "自然语言描述与标签生成完成")
+
     state.generate_btn = _button(
         content=ft.Row([ft.Icon(I.PLAY_CIRCLE, size=18), ft.Text("生成标签")], spacing=6),
         on_click=run_generate,
@@ -625,6 +644,15 @@ def build_generator_page(page: ft.Page, state: AppState):
         color=C.WHITE,
         width=220,
         height=40,
+    )
+
+    state.generate_desc_and_tags_btn = _button(
+        content=ft.Row([ft.Icon(I.AUTO_FIX_HIGH, size=18), ft.Text("生成自然语言描述和标签")], spacing=6),
+        on_click=run_generate_description_and_tags,
+        bgcolor=C.BLUE_500,
+        color=C.WHITE,
+        width=280,
+        height=42,
     )
 
     def clear_log(_):
@@ -644,13 +672,13 @@ def build_generator_page(page: ft.Page, state: AppState):
         [
             ft.Text("标签生成", size=24, weight=ft.FontWeight.BOLD),
             ft.Divider(),
-            desc_input,
             ft.Row([state.generate_desc_btn], alignment=ft.MainAxisAlignment.START),
+            desc_input,
+            ft.Row([state.generate_btn, state.generate_desc_and_tags_btn, state.status], wrap=True),
             ft.Text("大语言模型思考模式", size=14, weight=ft.FontWeight.BOLD),
             ft.Row([thinking_select_tags, thinking_generate, thinking_validate], wrap=True),
-            ft.Row([use_semantic, use_llm, use_space, auto_generate], wrap=True),
+            ft.Row([use_semantic, use_llm, use_space], wrap=True),
             state.progress,
-            ft.Row([state.generate_btn, state.status], alignment=ft.MainAxisAlignment.START),
             ft.Divider(),
             ft.Text("运行日志", size=14, weight=ft.FontWeight.BOLD),
             ft.Container(content=state.log_view, width=780, height=320, border=ft.border.all(1, C.BLUE_GREY_400), padding=8),
