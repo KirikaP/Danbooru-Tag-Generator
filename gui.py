@@ -375,7 +375,7 @@ def _generate_impl(description: Optional[str], use_semantic: bool, use_llm: bool
 
     if use_semantic and cfg.get("semantic_search", {}).get("enabled", True):
         try:
-            generator.set_semantic_tagger(SemanticTagger(str(db_path), cfg))
+            generator.set_semantic_tagger(SemanticTagger(str(db_path), cfg.get("semantic_search", {})))
         except Exception:
             pass
 
