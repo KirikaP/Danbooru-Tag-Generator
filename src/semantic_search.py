@@ -500,11 +500,9 @@ class SemanticTagger:
         
         print(f"[SemanticTagger] 语义搜索阶段...")
         
-        # 过滤出有效标签（非NSFW，非特殊分类）
+        # 过滤出有效标签（非特殊分类）
         valid_tags = []
         for idx, row in self.df.iterrows():
-            if int(row.get('nsfw', 0)) == 1:
-                continue
             if int(row.get('category', 0)) == 4:
                 continue
             valid_tags.append({
@@ -630,9 +628,7 @@ class SemanticTagger:
             tag_name = row['name']
             cn_name = row['cn_name']
             
-            # 跳过NSFW和特殊标签
-            if int(row.get('nsfw', 0)) == 1:
-                continue
+            # 跳过特殊标签
             if int(row.get('category', 0)) == 4:
                 continue
             
@@ -925,13 +921,10 @@ class SemanticTagger:
         # 5. 排序并取Top结果
         sorted_tags = sorted(final_results.values(), key=lambda x: x['final_score'], reverse=True)
         
-        # 过滤NSFW、特殊标签和低相似度标签
+        # 过滤特殊标签和低相似度标签
         similarity_threshold = self.config.get('similarity_threshold', 0.5)
         filtered_tags = []
         for tag in sorted_tags:
-            # 排除NSFW
-            if int(tag.get('nsfw', 0)) == 1:
-                continue
             # 排除分类4（特殊角色）
             if int(tag.get('category', 0)) == 4:
                 continue
@@ -985,10 +978,6 @@ class SemanticTagger:
             tag_name = tag.get('name', '')
             cn_name = tag.get('cn_name', '')
             wiki = tag.get('wiki', '')
-            
-            # 跳过NSFW
-            if int(tag.get('nsfw', 0)) == 1:
-                continue
             
             # 跳过分类4
             if int(tag.get('category', 0)) == 4:
