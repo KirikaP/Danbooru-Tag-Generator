@@ -72,9 +72,6 @@ class SemanticTagger:
         # 停用词表
         self.stop_words = self._build_stop_words()
         
-        # 初始化jieba分词器
-        self._build_jieba_dict()
-        
         # API会话（用于embedding）
         self.session = requests.Session()
         self.session.headers.update({
@@ -411,13 +408,6 @@ class SemanticTagger:
         
         self.max_log_count = cache_data['max_log_count']
         print(f"[SemanticTagger] Embeddings cache built: {save_path}")
-    
-    def _build_jieba_dict(self):
-        """初始化jieba分词器"""
-        import jieba
-        # 初始化jieba词典（首次调用会构建词典）
-        # 使用精确模式进行分词
-        list(jieba.cut("测试", cut_all=False))
     
     def _smart_split(self, text: str) -> List[str]:
         """
