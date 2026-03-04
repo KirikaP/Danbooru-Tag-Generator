@@ -160,6 +160,7 @@ class AppState:
         self.log_view: Optional[ft.ListView] = None
         self.log_text_control: Optional[ft.Text] = None
         self.log_text: str = ""
+        self.last_result: str = ""
 
     def set_status(self, page: ft.Page, text: str, color):
         if self.status is not None:
@@ -665,7 +666,9 @@ def build_generator_page(page: ft.Page, state: AppState):
             print(result)
             print("=" * 50)
             return result
-        run_with_live_logs(task_func, lambda _r: None, "生成完成 ✓")
+        def on_generate_success(result):
+            state.last_result = result
+        run_with_live_logs(task_func, on_generate_success, "生成完成 ✓")
 
     def run_generate_description(_):
         def task_func():
@@ -687,9 +690,11 @@ def build_generator_page(page: ft.Page, state: AppState):
             print("最终标签:")
             print(result)
             print("=" * 50)
-            return generated
-        def on_success(text):
-            desc_input.value = text
+            return generated, result
+        def on_success(data):
+            generated, result = data
+            desc_input.value = generated
+            state.last_result = result
             try:
                 desc_input.update()
             except Exception:
@@ -708,6 +713,14 @@ def build_generator_page(page: ft.Page, state: AppState):
         if text:
             page.set_clipboard(text)
             state.set_status(page, "已复制到剪贴板 ✓", C.GREEN)
+
+    def copy_result(_):
+        text = state.last_result
+        if text:
+            page.set_clipboard(text)
+            state.set_status(page, "已复制标签 ✓", C.GREEN)
+        else:
+            state.set_status(page, "没有可复制的标签", C.ORANGE)
 
     # ── 主操作按钮 ────────────────────────────────────────────────────────────
     state.generate_btn = _button(
@@ -728,6 +741,11 @@ def build_generator_page(page: ft.Page, state: AppState):
         bgcolor=C.TEAL_600,
         color=C.WHITE,
         height=42,
+    )
+    copy_tags_btn = _button(
+        content=ft.Row([ft.Icon(I.COPY, size=16), ft.Text("复制标签", size=13)], spacing=4),
+        on_click=copy_result,
+        height=36,
     )
 
     # ── 布局 ───────────────────────────────────────────────────────────────────
@@ -771,7 +789,8 @@ def build_generator_page(page: ft.Page, state: AppState):
             ft.Row(
                 [ft.Text("运行日志", size=14, weight=ft.FontWeight.W_600),
                  ft.Container(expand=True),
-                 _button(content=ft.Row([ft.Icon(I.COPY, size=16), ft.Text("复制", size=13)], spacing=4), on_click=copy_log, height=32),
+                 copy_tags_btn,
+                 _button(content=ft.Row([ft.Icon(I.COPY, size=16), ft.Text("复制日志", size=13)], spacing=4), on_click=copy_log, height=32),
                  _button(content=ft.Row([ft.Icon(I.DELETE_SWEEP, size=16), ft.Text("清空", size=13)], spacing=4), on_click=clear_log, height=32)],
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=8,
