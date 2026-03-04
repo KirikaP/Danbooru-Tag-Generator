@@ -72,6 +72,9 @@ class SemanticTagger:
         # 停用词表
         self.stop_words = self._build_stop_words()
         
+        # 初始化jieba分词器
+        self._build_jieba_dict()
+        
         # API会话（用于embedding）
         self.session = requests.Session()
         self.session.headers.update({
@@ -410,13 +413,16 @@ class SemanticTagger:
         print(f"[SemanticTagger] Embeddings cache built: {save_path}")
     
     def _build_jieba_dict(self):
-        """留作兼容性（已移除jieba）"""
-        pass
+        """初始化jieba分词器"""
+        import jieba
+        # 初始化jieba词典（首次调用会构建词典）
+        # 使用精确模式进行分词
+        list(jieba.cut("测试", cut_all=False))
     
     def _smart_split(self, text: str) -> List[str]:
         """
-        智能分词：基于规则的分词（不依赖jieba）
-        中文按标点和空格分割，英文按标点分割
+        智能分词：使用jieba分词模型
+        支持中英文混合分词，保留有意义的关键词
         
         Args:
             text: 输入文本
@@ -424,25 +430,34 @@ class SemanticTagger:
         Returns:
             分词后的token列表
         """
+        import jieba
+        
         tokens = []
+        # 先预处理：统一标点为空格
+        # 中文标点
+        text = re.sub(r'[，。！？；：''""【】、·…—～]', ' ', text)
+        # 英文标点：- 放在开头避免被解释为范围
+        text = re.sub(r'[,\(\)\[\]{}:;!?\'".\\~\-]', ' ', text)
         
-        # 按中英文混合分割
-        chunks = re.split(r'([\u4e00-\u9fa5]+)', text)
+        # 按空格分割成基本单元
+        parts = text.split()
         
-        for chunk in chunks:
-            if not chunk.strip():
+        for part in parts:
+            if not part.strip() or part.isdigit():
                 continue
-            
-            # 中文：按标点和空格分割
-            if re.match(r'[\u4e00-\u9fa5]+', chunk):
-                # 移除punctuation后按空格分割
-                cleaned = re.sub(r'[，。！？；：''""【】、·…—～]', ' ', chunk)
-                parts = [p.strip() for p in cleaned.split() if p.strip()]
-                tokens.extend(parts)
+                
+            # 判断是否为纯中文
+            if re.match(r'^[\u4e00-\u9fa5]+$', part):
+                # 中文：使用jieba分词
+                sub_parts = list(jieba.cut(part, cut_all=False))
+                tokens.extend([p for p in sub_parts if p.strip()])
             else:
-                # 英文：按标点分割
-                parts = re.sub(r'[,()\[\]{}:;!?"\'\.\-~]', ' ', chunk).split()
-                tokens.extend([p for p in parts if p and not p.isdigit()])
+                # 英文/混合：保留原样
+                if re.search(r'[a-zA-Z]', part):
+                    tokens.append(part)
+        
+        # 过滤：去除空白和纯符号
+        tokens = [t.strip() for t in tokens if t.strip() and re.search(r'[\u4e00-\u9fa5a-zA-Z]', t)]
         
         return tokens
     
