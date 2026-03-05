@@ -152,11 +152,13 @@ class AppState:
     def __init__(self):
         self.config = ConfigManager()
         self.generating = False
-        self.status: Optional[ft.Text] = None
-        self.progress: Optional[ft.ProgressBar] = None
-        self.generate_btn = None
-        self.generate_desc_btn = None
-        self.generate_desc_and_tags_btn = None
+        self.cancel_event: Optional[threading.Event] = None
+        self.status: Any = None
+        self.progress: Any = None
+        self.generate_btn: Any = None
+        self.generate_desc_btn: Any = None
+        self.generate_desc_and_tags_btn: Any = None
+        self.stop_btn: Any = None
         self.log_view: Optional[ft.ListView] = None
         self.log_text_control: Optional[ft.Text] = None
         self.log_text: str = ""
@@ -265,7 +267,9 @@ def _make_leaf_editor(state: AppState, key_path: str, value: Any):
         return control
 
     if isinstance(value, int) and not isinstance(value, bool):
-        control = ft.TextField(label=label, value=str(value), width=320, border_color=C.BLUE_400)
+        control = ft.TextField(
+            label=label, value=str(value), width=320, border_color=C.BLUE_400
+        )
 
         def on_change(e):
             raw = (e.control.value or "").strip()
@@ -284,7 +288,9 @@ def _make_leaf_editor(state: AppState, key_path: str, value: Any):
         return control
 
     if isinstance(value, float):
-        control = ft.TextField(label=label, value=str(value), width=320, border_color=C.BLUE_400)
+        control = ft.TextField(
+            label=label, value=str(value), width=320, border_color=C.BLUE_400
+        )
 
         def on_change(e):
             raw = (e.control.value or "").strip()
@@ -303,7 +309,9 @@ def _make_leaf_editor(state: AppState, key_path: str, value: Any):
         return control
 
     if value is None:
-        control = ft.TextField(label=label, value="", width=760, border_color=C.BLUE_400, hint_text="null")
+        control = ft.TextField(
+            label=label, value="", width=760, border_color=C.BLUE_400, hint_text="null"
+        )
 
         def on_change(e):
             raw = e.control.value
@@ -381,7 +389,9 @@ def _build_config_controls(state: AppState, node: Any, prefix: str = ""):
         for key, value in items:
             path = f"{prefix}.{key}" if prefix else key
             if isinstance(value, dict):
-                controls.append(ft.Text(_zh_label(path), size=15, weight=ft.FontWeight.BOLD))
+                controls.append(
+                    ft.Text(_zh_label(path), size=15, weight=ft.FontWeight.BOLD)
+                )
                 controls.extend(_build_config_controls(state, value, path))
                 controls.append(ft.Divider())
             else:
@@ -389,7 +399,13 @@ def _build_config_controls(state: AppState, node: Any, prefix: str = ""):
     return controls
 
 
-def _generate_impl(description: Optional[str], use_semantic: bool, use_llm: bool, use_space: bool) -> str:
+def _generate_impl(
+    description: Optional[str],
+    use_semantic: bool,
+    use_llm: bool,
+    use_space: bool,
+    cancel_event: Optional[threading.Event] = None,
+) -> str:
     cfg = get_config()
     db_path = cfg.get("database", {}).get("path", "danbooruTags/tags_enhanced.csv")
     db_path = Path(db_path)
@@ -404,7 +420,9 @@ def _generate_impl(description: Optional[str], use_semantic: bool, use_llm: bool
 
     if use_semantic and cfg.get("semantic_search", {}).get("enabled", True):
         try:
-            generator.set_semantic_tagger(SemanticTagger(str(db_path), cfg.get("semantic_search", {})))
+            generator.set_semantic_tagger(
+                SemanticTagger(str(db_path), cfg.get("semantic_search", {}))
+            )
         except Exception:
             pass
 
@@ -416,6 +434,7 @@ def _generate_impl(description: Optional[str], use_semantic: bool, use_llm: bool
                 api_key=llm_cfg.get("api_key", ""),
                 base_url=llm_cfg.get("base_url", "https://api.siliconflow.cn/v1"),
                 model=llm_cfg.get("model", "deepseek-ai/DeepSeek-V3.2"),
+                cancel_event=cancel_event,
             )
             if client.is_available():
                 generator.set_api_client(client)
@@ -425,7 +444,9 @@ def _generate_impl(description: Optional[str], use_semantic: bool, use_llm: bool
     return generator.generate(description, use_semantic=use_semantic)
 
 
-def _generate_natural_language_description() -> str:
+def _generate_natural_language_description(
+    cancel_event: Optional[threading.Event] = None,
+) -> str:
     print(f"\n[Generator] LLM 自动生成模式")
     print(f"[Generator]   正在生成场景描述...")
 
@@ -440,6 +461,7 @@ def _generate_natural_language_description() -> str:
         api_key=llm_cfg.get("api_key", ""),
         base_url=llm_cfg.get("base_url", "https://api.siliconflow.cn/v1"),
         model=llm_cfg.get("model", "deepseek-ai/DeepSeek-V3.2"),
+        cancel_event=cancel_event,
     )
 
     if not client.is_available():
@@ -472,8 +494,12 @@ def save_window_size(width, height):
 def _section_card(title: str, controls, icon=None):
     """带标题的配置卡片区块"""
     header_row = ft.Row(
-        [ft.Icon(icon, size=16, color=C.BLUE_400)] + [ft.Text(title, size=13, weight=ft.FontWeight.W_600, color=C.BLUE_GREY_700)]
-        if icon else [ft.Text(title, size=13, weight=ft.FontWeight.W_600, color=C.BLUE_GREY_700)],
+        [ft.Icon(icon, size=16, color=C.BLUE_400)]
+        + [ft.Text(title, size=13, weight=ft.FontWeight.W_600, color=C.BLUE_GREY_700)]
+        if icon
+        else [
+            ft.Text(title, size=13, weight=ft.FontWeight.W_600, color=C.BLUE_GREY_700)
+        ],
         spacing=6,
     )
     return ft.Container(
@@ -508,62 +534,102 @@ def build_generator_page(page: ft.Page, state: AppState):
 
     # ── 快捷设置控件（持久化到 config） ─────────────────────────────────────
     def _cfg_switch(key: str, label: str):
-        sw = ft.Switch(label=label, value=bool(state.config.get_value(key, False)), label_style=ft.TextStyle(size=13))
+        sw = ft.Switch(
+            label=label,
+            value=bool(state.config.get_value(key, False)),
+            label_style=ft.TextStyle(size=13),
+        )
+
         def _on(e):
             state.config.set_value(key, bool(e.control.value))
             state.config.save()
+
         sw.on_change = _on
         return sw
 
     def _cfg_int_field(key: str, label: str, width=100):
-        tf = ft.TextField(label=label, value=str(state.config.get_value(key, 0)), width=width,
-                          border_color=C.BLUE_400, text_size=13, label_style=ft.TextStyle(size=12))
+        tf = ft.TextField(
+            label=label,
+            value=str(state.config.get_value(key, 0)),
+            width=width,
+            border_color=C.BLUE_400,
+            text_size=13,
+            label_style=ft.TextStyle(size=12),
+        )
+
         def _on_change(e):
             raw = (e.control.value or "").strip()
             if raw and raw.lstrip("-").isdigit():
                 state.config.set_value(key, int(raw))
+
         def _on_blur(_):
             state.config.save()
+
         tf.on_change = _on_change
         tf.on_blur = _on_blur
         return tf
 
     def _cfg_text_field(key: str, label: str, width=340):
-        tf = ft.TextField(label=label, value=str(state.config.get_value(key, "")), width=width,
-                          border_color=C.BLUE_400, text_size=13, label_style=ft.TextStyle(size=12))
+        tf = ft.TextField(
+            label=label,
+            value=str(state.config.get_value(key, "")),
+            width=width,
+            border_color=C.BLUE_400,
+            text_size=13,
+            label_style=ft.TextStyle(size=12),
+        )
+
         def _on_change(e):
             state.config.set_value(key, e.control.value)
+
         def _on_blur(_):
             state.config.save()
+
         tf.on_change = _on_change
         tf.on_blur = _on_blur
         return tf
 
-    sw_semantic   = _cfg_switch("semantic_search.enabled", "语义搜索")
-    sw_llm        = _cfg_switch("llm.enabled", "大语言模型")
-    sw_space      = ft.Switch(label="标签用空格分隔", value=True, label_style=ft.TextStyle(size=13))
-    tf_max_tags   = _cfg_int_field("generator.max_tags",    "最大标签数", width=110)
-    tf_sel_max    = _cfg_int_field("llm.select_tags_max",   "LLM 筛选上限", width=110)
-    tf_llm_model  = _cfg_text_field("llm.model", "LLM 模型", width=340)
-    tf_emb_model  = _cfg_text_field("semantic_search.embedding.model", "Embedding 模型", width=260)
+    sw_semantic = _cfg_switch("semantic_search.enabled", "语义搜索")
+    sw_llm = _cfg_switch("llm.enabled", "大语言模型")
+    sw_space = ft.Switch(
+        label="标签用空格分隔", value=True, label_style=ft.TextStyle(size=13)
+    )
+    tf_max_tags = _cfg_int_field("generator.max_tags", "最大标签数", width=110)
+    tf_sel_max = _cfg_int_field("llm.select_tags_max", "LLM 筛选上限", width=110)
+    tf_llm_model = _cfg_text_field("llm.model", "LLM 模型", width=340)
+    tf_emb_model = _cfg_text_field(
+        "semantic_search.embedding.model", "Embedding 模型", width=260
+    )
 
-    sw_think_sel  = _cfg_switch("llm.thinking.select_tags", "筛选标签")
-    sw_think_gen  = _cfg_switch("llm.thinking.generate",    "生成描述")
-    sw_think_val  = _cfg_switch("llm.thinking.validate",    "验证标签")
+    sw_think_sel = _cfg_switch("llm.thinking.select_tags", "筛选标签")
+    sw_think_gen = _cfg_switch("llm.thinking.generate", "生成描述")
+    sw_think_val = _cfg_switch("llm.thinking.validate", "验证标签")
 
     # ── 按钮组 ───────────────────────────────────────────────────────────────
-    state.generate_desc_btn         = None
+    state.generate_desc_btn = None
     state.generate_desc_and_tags_btn = None
+    state.stop_btn = None
 
     def _all_btns():
-        return [b for b in [state.generate_btn, state.generate_desc_btn, state.generate_desc_and_tags_btn] if b is not None]
+        return [
+            b
+            for b in [
+                state.generate_btn,
+                state.generate_desc_btn,
+                state.generate_desc_and_tags_btn,
+            ]
+            if b is not None
+        ]
 
     def run_with_live_logs(task_func, on_success, success_text):
         if state.generating:
             return
         state.generating = True
+        state.cancel_event = threading.Event()
         for b in _all_btns():
             b.disabled = True
+        if state.stop_btn is not None:
+            state.stop_btn.disabled = False
         state.progress.visible = True
         state.log_text = ""
         if state.log_text_control is not None:
@@ -636,19 +702,30 @@ def build_generator_page(page: ft.Page, state: AppState):
             tee_err = TeeWriter(sys.stderr)
 
             try:
-                with contextlib.redirect_stdout(tee_out), contextlib.redirect_stderr(tee_err):
+                with (
+                    contextlib.redirect_stdout(tee_out),
+                    contextlib.redirect_stderr(tee_err),
+                ):
                     result = task_func()
                 on_success(result)
                 state.set_status(page, success_text, C.GREEN)
+            except InterruptedError:
+                state.set_status(page, "已中断，随时可重新生成", C.ORANGE)
             except Exception as ex:
-                with contextlib.redirect_stdout(tee_out), contextlib.redirect_stderr(tee_err):
+                with (
+                    contextlib.redirect_stdout(tee_out),
+                    contextlib.redirect_stderr(tee_err),
+                ):
                     traceback.print_exc()
                 state.set_status(page, f"错误: {ex}", C.RED)
             finally:
                 push_to_ui(force=True)
                 state.generating = False
+                state.cancel_event = None
                 for b in _all_btns():
                     b.disabled = False
+                if state.stop_btn is not None:
+                    state.stop_btn.disabled = True
                 state.progress.visible = False
                 page.update()
 
@@ -659,38 +736,80 @@ def build_generator_page(page: ft.Page, state: AppState):
         if not description:
             state.set_status(page, "请输入描述", C.ORANGE)
             return
+
         def task_func():
-            result = _generate_impl(description, sw_semantic.value, sw_llm.value, sw_space.value)
+            start_time = time.perf_counter()
+            result = _generate_impl(
+                description,
+                sw_semantic.value,
+                sw_llm.value,
+                sw_space.value,
+                cancel_event=state.cancel_event,
+            )
+            total_time = time.perf_counter() - start_time
             print("=" * 50)
+            print(f"耗时统计: 总耗时 {total_time:.2f}s")
             print("最终标签:")
             print(result)
             print("=" * 50)
             return result
+
         def on_generate_success(result):
             state.last_result = result
+
         run_with_live_logs(task_func, on_generate_success, "生成完成 ✓")
 
     def run_generate_description(_):
         def task_func():
-            return _generate_natural_language_description()
+            start_time = time.perf_counter()
+            result = _generate_natural_language_description(
+                cancel_event=state.cancel_event
+            )
+            total_time = time.perf_counter() - start_time
+            print(f"耗时统计: 描述生成耗时 {total_time:.2f}s")
+            return result
+
         def on_success(text):
             desc_input.value = text
             try:
                 desc_input.update()
             except Exception:
                 pass
+
         run_with_live_logs(task_func, on_success, "描述生成完成 ✓")
 
     def run_generate_description_and_tags(_):
         def task_func():
-            generated = _generate_natural_language_description()
+            total_start = time.perf_counter()
+
+            desc_start = time.perf_counter()
+            generated = _generate_natural_language_description(
+                cancel_event=state.cancel_event
+            )
+            desc_time = time.perf_counter() - desc_start
+
             print("[Generator] 使用生成的描述继续生成标签…")
-            result = _generate_impl(generated, sw_semantic.value, sw_llm.value, sw_space.value)
+
+            tag_start = time.perf_counter()
+            result = _generate_impl(
+                generated,
+                sw_semantic.value,
+                sw_llm.value,
+                sw_space.value,
+                cancel_event=state.cancel_event,
+            )
+            tag_time = time.perf_counter() - tag_start
+            total_time = time.perf_counter() - total_start
+
             print("=" * 50)
+            print(
+                f"耗时统计: 描述生成 {desc_time:.2f}s | 标签生成 {tag_time:.2f}s | 总耗时 {total_time:.2f}s"
+            )
             print("最终标签:")
             print(result)
             print("=" * 50)
             return generated, result
+
         def on_success(data):
             generated, result = data
             desc_input.value = generated
@@ -699,7 +818,17 @@ def build_generator_page(page: ft.Page, state: AppState):
                 desc_input.update()
             except Exception:
                 pass
+
         run_with_live_logs(task_func, on_success, "随机创作完成 ✓")
+
+    def run_cancel(_):
+        if (
+            state.generating
+            and state.cancel_event is not None
+            and not state.cancel_event.is_set()
+        ):
+            state.cancel_event.set()
+            state.set_status(page, "正在中断，请稍候…", C.ORANGE)
 
     def clear_log(_):
         state.log_text = ""
@@ -724,26 +853,46 @@ def build_generator_page(page: ft.Page, state: AppState):
 
     # ── 主操作按钮 ────────────────────────────────────────────────────────────
     state.generate_btn = _button(
-        content=ft.Row([ft.Icon(I.PLAY_CIRCLE, size=18), ft.Text("生成标签", size=14)], spacing=6),
+        content=ft.Row(
+            [ft.Icon(I.PLAY_CIRCLE, size=18), ft.Text("生成标签", size=14)], spacing=6
+        ),
         on_click=run_generate,
         bgcolor=C.BLUE_700,
         color=C.WHITE,
         height=42,
     )
     state.generate_desc_btn = _button(
-        content=ft.Row([ft.Icon(I.AUTO_AWESOME, size=16), ft.Text("随机生成描述", size=13)], spacing=5),
+        content=ft.Row(
+            [ft.Icon(I.AUTO_AWESOME, size=16), ft.Text("随机生成描述", size=13)],
+            spacing=5,
+        ),
         on_click=run_generate_description,
         height=36,
     )
     state.generate_desc_and_tags_btn = _button(
-        content=ft.Row([ft.Icon(I.AUTO_FIX_HIGH, size=18), ft.Text("随机创作并生成标签", size=14)], spacing=6),
+        content=ft.Row(
+            [ft.Icon(I.AUTO_FIX_HIGH, size=18), ft.Text("随机创作并生成标签", size=14)],
+            spacing=6,
+        ),
         on_click=run_generate_description_and_tags,
         bgcolor=C.TEAL_600,
         color=C.WHITE,
         height=42,
     )
+    state.stop_btn = _button(
+        content=ft.Row(
+            [ft.Icon(I.STOP_CIRCLE, size=18), ft.Text("中断", size=14)], spacing=6
+        ),
+        on_click=run_cancel,
+        bgcolor=C.RED_600,
+        color=C.WHITE,
+        height=42,
+        disabled=True,
+    )
     copy_tags_btn = _button(
-        content=ft.Row([ft.Icon(I.COPY, size=16), ft.Text("复制标签", size=13)], spacing=4),
+        content=ft.Row(
+            [ft.Icon(I.COPY, size=16), ft.Text("复制标签", size=13)], spacing=4
+        ),
         on_click=copy_result,
         height=36,
     )
@@ -756,8 +905,14 @@ def build_generator_page(page: ft.Page, state: AppState):
             ft.Row([tf_max_tags, tf_sel_max, tf_llm_model], wrap=True, spacing=12),
             ft.Row([tf_emb_model], wrap=True, spacing=12),
             ft.Row(
-                [ft.Text("思考模式：", size=13, color=C.BLUE_GREY_600), sw_think_sel, sw_think_gen, sw_think_val],
-                wrap=True, spacing=4,
+                [
+                    ft.Text("思考模式：", size=13, color=C.BLUE_GREY_600),
+                    sw_think_sel,
+                    sw_think_gen,
+                    sw_think_val,
+                ],
+                wrap=True,
+                spacing=4,
             ),
         ],
         icon=I.TUNE,
@@ -767,9 +922,11 @@ def build_generator_page(page: ft.Page, state: AppState):
         [
             # ── 标题行 ──
             ft.Row(
-                [ft.Text("标签生成", size=22, weight=ft.FontWeight.BOLD),
-                 ft.Container(expand=True),
-                 state.generate_desc_btn],
+                [
+                    ft.Text("标签生成", size=22, weight=ft.FontWeight.BOLD),
+                    ft.Container(expand=True),
+                    state.generate_desc_btn,
+                ],
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
             ft.Divider(height=1),
@@ -777,7 +934,13 @@ def build_generator_page(page: ft.Page, state: AppState):
             desc_input,
             # ── 主按钮行 ──
             ft.Row(
-                [state.generate_btn, state.generate_desc_and_tags_btn, ft.Container(expand=True), state.status],
+                [
+                    state.generate_btn,
+                    state.generate_desc_and_tags_btn,
+                    state.stop_btn,
+                    ft.Container(expand=True),
+                    state.status,
+                ],
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 wrap=False,
             ),
@@ -787,11 +950,30 @@ def build_generator_page(page: ft.Page, state: AppState):
             ft.Divider(height=1),
             # ── 日志区 ──
             ft.Row(
-                [ft.Text("运行日志", size=14, weight=ft.FontWeight.W_600),
-                 ft.Container(expand=True),
-                 copy_tags_btn,
-                 _button(content=ft.Row([ft.Icon(I.COPY, size=16), ft.Text("复制日志", size=13)], spacing=4), on_click=copy_log, height=32),
-                 _button(content=ft.Row([ft.Icon(I.DELETE_SWEEP, size=16), ft.Text("清空", size=13)], spacing=4), on_click=clear_log, height=32)],
+                [
+                    ft.Text("运行日志", size=14, weight=ft.FontWeight.W_600),
+                    ft.Container(expand=True),
+                    copy_tags_btn,
+                    _button(
+                        content=ft.Row(
+                            [ft.Icon(I.COPY, size=16), ft.Text("复制日志", size=13)],
+                            spacing=4,
+                        ),
+                        on_click=copy_log,
+                        height=32,
+                    ),
+                    _button(
+                        content=ft.Row(
+                            [
+                                ft.Icon(I.DELETE_SWEEP, size=16),
+                                ft.Text("清空", size=13),
+                            ],
+                            spacing=4,
+                        ),
+                        on_click=clear_log,
+                        height=32,
+                    ),
+                ],
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=8,
             ),
@@ -820,8 +1002,14 @@ def build_config_page(state: AppState):
             ft.Text("高级配置", size=22, weight=ft.FontWeight.BOLD),
             ft.Divider(height=1),
             ft.Row(
-                [ft.Icon(I.INFO_OUTLINE, size=14, color=C.BLUE_GREY_400),
-                 ft.Text("所有修改将自动保存到 config.json", size=12, color=C.BLUE_GREY_400)],
+                [
+                    ft.Icon(I.INFO_OUTLINE, size=14, color=C.BLUE_GREY_400),
+                    ft.Text(
+                        "所有修改将自动保存到 config.json",
+                        size=12,
+                        color=C.BLUE_GREY_400,
+                    ),
+                ],
                 spacing=4,
             ),
             *controls,
@@ -865,7 +1053,16 @@ def main(page: ft.Page):
         ft.Column(
             [
                 ft.Container(
-                    ft.Row([ft.Icon(I.TAG, size=32, color=C.BLUE_400), ft.Text("Danbooru Tag Generator", size=24, weight=ft.FontWeight.BOLD)]),
+                    ft.Row(
+                        [
+                            ft.Icon(I.TAG, size=32, color=C.BLUE_400),
+                            ft.Text(
+                                "Danbooru Tag Generator",
+                                size=24,
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                        ]
+                    ),
                     padding=16,
                 ),
                 ft.Divider(height=1),
@@ -881,7 +1078,11 @@ def run_browser_app():
     exe_dir = str(Path(sys.executable).parent)
     scripts_dir = str(Path(sys.executable).parent / "Scripts")
     path_items = os.environ.get("PATH", "").split(os.pathsep)
-    path_items = [item for item in path_items if item and item.lower() not in {exe_dir.lower(), scripts_dir.lower()}]
+    path_items = [
+        item
+        for item in path_items
+        if item and item.lower() not in {exe_dir.lower(), scripts_dir.lower()}
+    ]
     os.environ["PATH"] = os.pathsep.join([exe_dir, scripts_dir] + path_items)
 
     app_view = None
