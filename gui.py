@@ -139,6 +139,15 @@ class ConfigManager:
         return value
 
     def set_value(self, key: str, value: Any):
+        # 对 api_key / base_url / api_url 等关键字段自动去除首尾空白
+        leaf = key.rsplit(".", 1)[-1] if "." in key else key
+        if isinstance(value, str) and leaf in (
+            "api_key",
+            "base_url",
+            "api_url",
+            "model",
+        ):
+            value = value.strip()
         parts = key.split(".")
         node = self.config
         for part in parts[:-1]:
@@ -581,6 +590,10 @@ def build_generator_page(page: ft.Page, state: AppState):
 
         def _on_change(e):
             state.config.set_value(key, e.control.value)
+            # 关键字段改动后立即保存（避免首页改了配置页看不到）
+            leaf = key.rsplit(".", 1)[-1] if "." in key else key
+            if leaf in ("api_key", "base_url", "api_url", "model", "provider"):
+                state.config.save()
 
         def _on_blur(_):
             state.config.save()
@@ -1037,17 +1050,48 @@ def main(page: ft.Page):
 
     state = AppState()
 
-    generator_page = build_generator_page(page, state)
-    config_page = build_config_page(state)
+    generator_page_container = ft.Container(padding=20)
+    config_page_container = ft.Container(padding=20)
+
+    def refresh_config_page():
+        # 配置页按需重建，确保“标签生成”页的快捷设置改动可及时反映到这里
+        config_page_container.content = build_config_page(state)
+
+    def refresh_generator_page():
+        # 标签生成页按需重建，确保“配置”页改动可及时反映到这里
+        generator_page_container.content = build_generator_page(page, state)
+
+    refresh_config_page()
+    refresh_generator_page()
 
     page_tabs = ft.Tabs(
         selected_index=0,
         tabs=[
-            ft.Tab(text="标签生成", content=ft.Container(generator_page, padding=20)),
-            ft.Tab(text="配置", content=ft.Container(config_page, padding=20)),
+            ft.Tab(text="标签生成", content=generator_page_container),
+            ft.Tab(text="配置", content=config_page_container),
         ],
         expand=1,
     )
+
+    def on_tab_change(e):
+        # 切到"配置"页时重建控件，避免显示旧值
+        if e.control.selected_index == 1:
+            # 重新加载配置文件，确保看到最新的改动
+            state.config.load()
+            refresh_config_page()
+            try:
+                config_page_container.update()
+            except Exception:
+                page.update()
+        else:
+            # 切回"标签生成"页时重建控件，避免显示旧值
+            refresh_generator_page()
+            try:
+                generator_page_container.update()
+            except Exception:
+                page.update()
+
+    page_tabs.on_change = on_tab_change
 
     page.add(
         ft.Column(
