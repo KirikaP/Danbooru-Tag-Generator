@@ -429,9 +429,11 @@ def _generate_impl(
 
     if use_semantic and cfg.get("semantic_search", {}).get("enabled", True):
         try:
-            generator.set_semantic_tagger(
-                SemanticTagger(str(db_path), cfg.get("semantic_search", {}))
+            semantic_tagger = SemanticTagger(
+                str(db_path), cfg.get("semantic_search", {})
             )
+            semantic_tagger.set_cancel_event(cancel_event)
+            generator.set_semantic_tagger(semantic_tagger)
         except Exception:
             pass
 
