@@ -24,7 +24,7 @@ wheels/
 venv/
 env/
 ENV/
-.venv
+.venv/
 
 # IDE
 .vscode/
@@ -33,11 +33,21 @@ ENV/
 *.swo
 *~
 
+# Linter cache
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
 # Project specific
 config.json
+gui_state.json
 cache/
 *.pkl
 *.pickle
+*.log
+
+# Tool-specific
+.opencode/
 
 # OS
 .DS_Store
