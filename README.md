@@ -14,7 +14,8 @@
 ## 安装
 
 ```bash
-pip install -r requirements.txt
+uv venv .venv
+uv pip install --python .venv/bin/python -r requirements.txt
 ```
 
 > 已包含 `flet-web==0.26.0`，用于浏览器模式 GUI 运行。
@@ -31,10 +32,10 @@ pip install -r requirements.txt
 
 ```bash
 # 方式1：直接启动
-python gui.py
+uv run --python .venv/bin/python gui.py
 
 # 方式2：推荐（Windows）
-# 自动创建虚拟环境、安装依赖（使用中科大镜像），然后启动 GUI
+# 自动创建虚拟环境、安装依赖（使用 uv + 中科大镜像），然后启动 GUI
 start_gui.bat
 ```
 
@@ -50,20 +51,22 @@ start_gui.bat
 
 ```bash
 # 基本用法
-python main.py -d "一位白发少女站在樱花树下"
+uv run --python .venv/bin/python main.py -d "一位白发少女站在樱花树下"
 
 # 禁用 LLM（仅语义搜索）
-python main.py -d "一位白发少女" --no-llm
+uv run --python .venv/bin/python main.py -d "一位白发少女" --no-llm
 
 # 禁用语义搜索（仅 LLM）
-python main.py -d "一位白发少女" --no-semantic
+uv run --python .venv/bin/python main.py -d "一位白发少女" --no-semantic
 
 # 交互模式（LLM 自动生成场景描述）
-python main.py
+uv run --python .venv/bin/python main.py
 
 # 批量生成
-python main.py -f descriptions.txt -o output.txt
+uv run --python .venv/bin/python main.py -f descriptions.txt -o output.txt
 ```
+
+> Windows 下将 `.venv/bin/python` 替换为 `.venv\\Scripts\\python.exe`。
 
 > 首次运行会自动构建嵌入缓存，之后会直接使用缓存。
 

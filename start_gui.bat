@@ -4,29 +4,21 @@ setlocal ENABLEDELAYEDEXPANSION
 cd /d "%~dp0"
 echo [Danbooru Tag Generator] Preparing environment...
 
-set "BOOTSTRAP_PYTHON="
-if exist ".venv\Scripts\python.exe" (
-    set "BOOTSTRAP_PYTHON=.venv\Scripts\python.exe"
-) else (
-    where python >nul 2>nul
-    if not errorlevel 1 (
-        set "BOOTSTRAP_PYTHON=python"
-    ) else if exist "%USERPROFILE%\miniconda3\python.exe" (
-        set "BOOTSTRAP_PYTHON=%USERPROFILE%\miniconda3\python.exe"
-    )
-)
-
-if "%BOOTSTRAP_PYTHON%"=="" (
-    echo [ERROR] Python is not found.
-    echo Please install Python 3.10+ or add python to PATH, then run this script again.
+where uv >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] uv is not found.
+    echo Please install uv first: https://docs.astral.sh/uv/getting-started/installation/
     pause
     exit /b 1
 )
 
-echo [1/4] Checking virtual environment...
+set "VENV_PYTHON=.venv\Scripts\python.exe"
+set "UV_INDEX_URL=https://mirrors.ustc.edu.cn/pypi/simple"
+
+echo [1/3] Checking virtual environment...
 if not exist ".venv\Scripts\python.exe" (
     echo Creating .venv...
-    "%BOOTSTRAP_PYTHON%" -m venv .venv
+    uv venv .venv
     if errorlevel 1 (
         echo [ERROR] Failed to create virtual environment.
         pause
@@ -34,28 +26,16 @@ if not exist ".venv\Scripts\python.exe" (
     )
 )
 
-set "PYTHON_EXE=.venv\Scripts\python.exe"
-set "PIP_INDEX_URL=https://mirrors.ustc.edu.cn/pypi/simple"
-
-echo [2/4] Upgrading pip...
-"%PYTHON_EXE%" -m pip install --upgrade pip -i "%PIP_INDEX_URL%" >nul
-
-echo [3/4] Installing dependencies...
-"%PYTHON_EXE%" -m pip install -r requirements.txt -i "%PIP_INDEX_URL%"
+echo [2/3] Installing dependencies with uv...
+uv pip install --python "%VENV_PYTHON%" -r requirements.txt --index-url "%UV_INDEX_URL%"
 if errorlevel 1 (
     echo [ERROR] Failed to install requirements.
     pause
     exit /b 1
 )
 
-echo [4/4] Verifying GUI runtime packages...
-"%PYTHON_EXE%" -m pip install flet-web==0.26.0 -i "%PIP_INDEX_URL%" >nul
-if errorlevel 1 (
-    echo [WARN] Failed to install flet-web automatically. Trying without it...
-)
-
-echo Launching GUI...
-"%PYTHON_EXE%" gui.py
+echo [3/3] Launching GUI...
+uv run --python "%VENV_PYTHON%" gui.py
 
 if errorlevel 1 (
     echo.
