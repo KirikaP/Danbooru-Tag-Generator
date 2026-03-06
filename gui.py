@@ -14,10 +14,8 @@ from typing import Any, Dict, Optional
 
 import flet as ft
 
-from src.config import get_config, reload_config
-from src.api_client import APIClient
-from src.semantic_search import SemanticTagger
-from src.generator import PromptGenerator
+from src.config import reload_config
+from src.services.generation_service import GenerationService
 
 CONFIG_PATH = Path(__file__).parent / "config.json"
 GUI_STATE_PATH = Path(__file__).parent / "gui_state.json"
@@ -415,72 +413,21 @@ def _generate_impl(
     use_space: bool,
     cancel_event: Optional[threading.Event] = None,
 ) -> str:
-    cfg = get_config()
-    db_path = cfg.get("database", {}).get("path", "danbooruTags/tags_enhanced.csv")
-    db_path = Path(db_path)
-    if not db_path.is_absolute():
-        db_path = Path(__file__).parent / db_path
-
-    generator = PromptGenerator(
-        db_path=str(db_path),
-        max_tags=cfg.get("generator", {}).get("max_tags", 100),
-        use_space_separator=use_space,
+    service = GenerationService()
+    return service.generate_tags(
+        description=description,
+        use_semantic=use_semantic,
+        use_llm=use_llm,
+        use_space=use_space,
+        cancel_event=cancel_event,
     )
-
-    if use_semantic and cfg.get("semantic_search", {}).get("enabled", True):
-        try:
-            semantic_tagger = SemanticTagger(
-                str(db_path), cfg.get("semantic_search", {})
-            )
-            semantic_tagger.set_cancel_event(cancel_event)
-            generator.set_semantic_tagger(semantic_tagger)
-        except Exception:
-            pass
-
-    if use_llm and cfg.get("llm", {}).get("enabled", True):
-        try:
-            llm_cfg = cfg.get("llm", {})
-            client = APIClient(
-                provider=llm_cfg.get("provider", "SiliconFlow"),
-                api_key=llm_cfg.get("api_key", ""),
-                base_url=llm_cfg.get("base_url", "https://api.siliconflow.cn/v1"),
-                model=llm_cfg.get("model", "deepseek-ai/DeepSeek-V3.2"),
-                cancel_event=cancel_event,
-            )
-            if client.is_available():
-                generator.set_api_client(client)
-        except Exception:
-            pass
-
-    return generator.generate(description, use_semantic=use_semantic)
 
 
 def _generate_natural_language_description(
     cancel_event: Optional[threading.Event] = None,
 ) -> str:
-    print(f"\n[Generator] LLM 自动生成模式")
-    print(f"[Generator]   正在生成场景描述...")
-
-    gen_cfg = get_config("generator") or {}
-    user_prompt = gen_cfg.get("auto_generate_prompt", "")
-    max_chinese = gen_cfg.get("auto_generate_max_chinese_chars", 40)
-    user_prompt = user_prompt.replace("{max_chinese_chars}", str(max_chinese))
-
-    llm_cfg = get_config("llm") or {}
-    client = APIClient(
-        provider=llm_cfg.get("provider", "SiliconFlow"),
-        api_key=llm_cfg.get("api_key", ""),
-        base_url=llm_cfg.get("base_url", "https://api.siliconflow.cn/v1"),
-        model=llm_cfg.get("model", "deepseek-ai/DeepSeek-V3.2"),
-        cancel_event=cancel_event,
-    )
-
-    if not client.is_available():
-        raise RuntimeError("LLM 客户端不可用，请检查 API Key 与配置")
-
-    description = client.generate("", user_prompt).strip()
-    print(f"[Generator]   LLM生成的场景: {description}")
-    return description
+    service = GenerationService()
+    return service.generate_description(cancel_event=cancel_event)
 
 
 def load_window_size():
