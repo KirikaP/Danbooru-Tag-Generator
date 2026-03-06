@@ -20,7 +20,9 @@ class GenerationService:
 
     def _resolve_db_path(self) -> Path:
         cfg = get_config()
-        db_path = Path(cfg.get("database", {}).get("path", "danbooruTags/tags_enhanced.csv"))
+        db_path = Path(
+            cfg.get("database", {}).get("path", "danbooruTags/tags_enhanced.csv")
+        )
         if not db_path.is_absolute():
             db_path = Path(__file__).resolve().parents[2] / db_path
         return db_path
@@ -54,7 +56,10 @@ class GenerationService:
         )
 
         if use_semantic and cfg.get("semantic_search", {}).get("enabled", True):
-            semantic_tagger = SemanticTagger(str(db_path), cfg.get("semantic_search", {}))
+            semantic_tagger = SemanticTagger(
+                str(db_path), cfg.get("semantic_search", {})
+            )
+            semantic_tagger.load()
             semantic_tagger.set_cancel_event(cancel_event)
             generator.set_semantic_tagger(semantic_tagger)
 

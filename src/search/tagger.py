@@ -46,19 +46,21 @@ class SemanticTagger:
             csv_path: Path to CSV database
             config: Configuration dictionary
         """
+        # Always update paths/config even if already initialized (singleton reuse)
+        if csv_path is not None:
+            self.csv_path = csv_path
+        if config is not None:
+            self.config = config
+            self._parse_config()
+
         if self.initialized:
             return
-
-        self.csv_path = csv_path
-        self.config = config or {}
-
-        # Parse configuration
-        self._parse_config()
 
         # Data
         self.df: Optional[pd.DataFrame] = None
         self.tags_data: List[Dict] = []
         self.max_log_count = 15.0
+        self._data_loaded = False
 
         # Pre-computed embeddings
         self.emb_en: Optional[np.ndarray] = None
@@ -139,6 +141,10 @@ class SemanticTagger:
 
     def load(self):
         """Load data and initialize embeddings cache."""
+        # Skip if already loaded with same path
+        if getattr(self, "_data_loaded", False) and self.df is not None:
+            return
+
         self._tag_names = set()
         self._load_csv()
 
@@ -147,6 +153,9 @@ class SemanticTagger:
 
         # Try loading cache
         self._load_embeddings_cache()
+
+        # Mark data as loaded
+        self._data_loaded = True
 
     def _load_csv(self):
         """Load CSV data with encoding detection."""
