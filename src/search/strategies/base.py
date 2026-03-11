@@ -18,7 +18,6 @@ class SearchStrategy(ABC):
     def __init__(
         self,
         df: pd.DataFrame,
-        embeddings: Optional[np.ndarray],
         embedding_client: Optional[EmbeddingClient],
         reranker_client: Optional[RerankerClient],
         config: Optional[Dict[str, Any]] = None,
@@ -27,13 +26,11 @@ class SearchStrategy(ABC):
 
         Args:
             df: DataFrame with tag data
-            embeddings: Pre-computed embeddings (if available)
             embedding_client: Client for API embeddings
             reranker_client: Client for reranking
             config: Configuration dictionary
         """
         self.df = df
-        self.embeddings = embeddings
         self.embedding_client = embedding_client
         self.reranker_client = reranker_client
         self.config = config or {}
