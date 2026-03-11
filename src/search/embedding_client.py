@@ -175,7 +175,6 @@ class EmbeddingClient:
             }
 
             try:
-                batch_start = time.time()
                 response = self._request_with_retry(
                     f"{self.api_url}/embeddings",
                     payload=payload,
@@ -183,7 +182,6 @@ class EmbeddingClient:
                 )
                 response.raise_for_status()
                 result = response.json()
-                batch_time = time.time() - batch_start
 
                 embeddings = [item["embedding"] for item in result["data"]]
                 all_embeddings.extend(embeddings)
@@ -192,7 +190,6 @@ class EmbeddingClient:
                     print(
                         f"    Progress: [{batch_idx + 1}/{total_batches}] "
                         f"Encoded {min(i + batch_size, len(texts))}/{len(texts)} "
-                        f"texts ({batch_time:.2f}s)"
                     )
 
             except InterruptedError:
