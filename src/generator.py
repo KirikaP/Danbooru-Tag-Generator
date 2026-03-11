@@ -12,7 +12,6 @@ from .api_client import APIClient, create_api_client
 class PromptGenerator:
     """文生图提示词生成器 - 纯API/语义搜索模式"""
 
-    # 核心人物标签
     CORE_TAGS = ["1girl", "1boy", "solo"]
 
     def __init__(
@@ -51,7 +50,6 @@ class PromptGenerator:
         """启用API"""
         if self.api_client is None:
             self.api_client = create_api_client()
-        return self.api_client is not None
 
     def is_api_enabled(self) -> bool:
         """检查API是否启用"""
