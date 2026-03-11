@@ -22,14 +22,16 @@ class FallbackSearchStrategy(SearchStrategy):
         config: Optional[Dict[str, Any]] = None,
     ):
         """Initialize fallback strategy.
-        
+
         Args:
             df: DataFrame with tag data
             tags_data: List of tag dictionaries
             max_log_count: Max log count for popularity scoring
             config: Configuration dictionary
         """
-        super().__init__(df=df, embeddings=None, embedding_client=None, reranker_client=None, config=config)
+        super().__init__(
+            df=df, embedding_client=None, reranker_client=None, config=config
+        )
         self.tags_data = tags_data
         self.max_log_count = max_log_count
         self.cancel_event: Optional[threading.Event] = None
@@ -51,13 +53,13 @@ class FallbackSearchStrategy(SearchStrategy):
         popularity_weight: float = 0.15,
     ) -> Tuple[str, List[Dict]]:
         """Execute keyword-based fallback search.
-        
+
         Args:
             query: User query text
             top_k: Unused (for interface compatibility)
             limit: Maximum results to return
             popularity_weight: Unused (for interface compatibility)
-            
+
         Returns:
             Tuple of (tag_string, result_list)
         """
@@ -69,7 +71,7 @@ class FallbackSearchStrategy(SearchStrategy):
 
         for tag in self.tags_data:
             self._raise_if_cancelled()
-            
+
             tag_name = tag.get("name", "")
             cn_name = tag.get("cn_name", "")
             wiki = tag.get("wiki", "")
@@ -95,17 +97,19 @@ class FallbackSearchStrategy(SearchStrategy):
                     else 0
                 )
 
-                results.append({
-                    "tag": tag_name,
-                    "final_score": score + pop_score * 0.1,
-                    "semantic_score": score,
-                    "source": query,
-                    "cn_name": cn_name,
-                    "layer": "Fallback",
-                    "category": tag.get("category", "0"),
-                    "nsfw": tag.get("nsfw", "0"),
-                    "post_count": post_count,
-                })
+                results.append(
+                    {
+                        "tag": tag_name,
+                        "final_score": score + pop_score * 0.1,
+                        "semantic_score": score,
+                        "source": query,
+                        "cn_name": cn_name,
+                        "layer": "Fallback",
+                        "category": tag.get("category", "0"),
+                        "nsfw": tag.get("nsfw", "0"),
+                        "post_count": post_count,
+                    }
+                )
 
         results.sort(key=lambda x: x["final_score"], reverse=True)
         final_list = results[:limit]
