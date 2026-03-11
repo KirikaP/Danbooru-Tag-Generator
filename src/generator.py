@@ -268,7 +268,6 @@ class PromptGenerator:
             max_chinese = gen_cfg.get("auto_generate_max_chinese_chars", 40)
             user_prompt = user_prompt.replace("{max_chinese_chars}", str(max_chinese))
             description = self.api_client.generate("", user_prompt).strip()
-            print(f"[Generator]   LLM生成的场景: {description}")
 
             # 使用两阶段流程处理生成的描述
             if self.semantic_tagger:
