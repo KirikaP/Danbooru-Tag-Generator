@@ -102,5 +102,5 @@ class GenerationService:
             raise RuntimeError("LLM 客户端不可用，请检查 API Key 与配置")
 
         description = client.generate("", user_prompt).strip()
-        print(f"[Generator]   LLM生成的场景: {description}")
+        print(f"[Generator] 生成结果: {description}")
         return description
