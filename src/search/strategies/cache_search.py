@@ -39,7 +39,6 @@ class CacheSearchStrategy(SearchStrategy):
         """
         super().__init__(
             df=df,
-            embeddings=None,
             embedding_client=embedding_client,
             reranker_client=reranker_client,
             config=config,
