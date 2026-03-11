@@ -90,7 +90,7 @@ class GenerationService:
         self, cancel_event: Optional[threading.Event] = None
     ) -> str:
         print(f"\n[Generator] LLM 自动生成模式")
-        print(f"[Generator]   正在生成场景描述...")
+        print(f"[Generator] 正在生成场景描述...")
 
         gen_cfg = get_config("generator") or {}
         user_prompt = gen_cfg.get("auto_generate_prompt", "")

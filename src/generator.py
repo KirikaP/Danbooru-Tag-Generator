@@ -259,9 +259,6 @@ class PromptGenerator:
     def _generate_with_api_auto(self) -> str:
         """无描述时让API生成描述，然后用语义搜索"""
         try:
-            print(f"\n[Generator] LLM 自动生成模式")
-            print(f"[Generator]   正在生成场景描述...")
-
             from .config import get_config
 
             gen_cfg = get_config("generator") or {}
